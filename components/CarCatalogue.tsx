@@ -1,15 +1,12 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { mockCars } from '@/constants';
 
-const CarCard = ({
-  car,
-}: {
-  car: (typeof mockCars)[number];
-}) => {
+const CarCard = ({ car }: { car: (typeof mockCars)[number] }) => {
   const { make, model, year, transmission, drive, city_mpg } = car;
-  const carRent = Math.floor((30 / city_mpg) * year * 0.02) || 52;
+  const carRent = Math.floor((30 / Math.max(city_mpg, 1)) * year * 0.02) || 52;
 
   return (
     <div className="car-card group">
@@ -17,6 +14,7 @@ const CarCard = ({
         <h2 className="car-card__content-title">
           {make} {model}
         </h2>
+        <p className="text-sm text-gray-500">{year}</p>
       </div>
       <p className="flex mt-6 text-[32px] font-extrabold">
         <span className="self-start text-[14px] font-semibold">$</span>
@@ -30,9 +28,12 @@ const CarCard = ({
           fill
           className="object-contain"
         />
+        <div className="absolute bottom-2 left-2 rounded-full bg-primary-blue px-3 py-1 text-xs font-semibold text-white">
+          {make}
+        </div>
       </div>
       <div className="relative flex w-full mt-2">
-        <div className="flex group-hover:invisible w-full justify-between text-gray">
+        <div className="flex w-full justify-between text-gray">
           <div className="flex flex-col justify-center items-center gap-2">
             <Image
               src="/steering-wheel.svg"
@@ -59,18 +60,73 @@ const CarCard = ({
 };
 
 const CarCatalogue = () => {
+  const [query, setQuery] = useState('');
+  const [fuel, setFuel] = useState('all');
+
+  const cars = useMemo(() => {
+    return mockCars.filter((car) => {
+      const hay = `${car.make} ${car.model}`.toLowerCase();
+      const matchesQuery = hay.includes(query.trim().toLowerCase());
+      const isElectric = car.city_mpg >= 80;
+      const matchesFuel =
+        fuel === 'all' ||
+        (fuel === 'electric' && isElectric) ||
+        (fuel === 'gas' && !isElectric);
+      return matchesQuery && matchesFuel;
+    });
+  }, [query, fuel]);
+
   return (
     <div className="mt-12 padding-x padding-y max-width" id="discover">
       <div className="home__text-container">
         <h1 className="text-4xl font-extrabold">Car Catalogue</h1>
-        <p>Explore cars you might like — demo data for this portfolio deploy.</p>
+        <p>
+          Local demo catalogue — no external car APIs or keys. Filter and browse
+          safely.
+        </p>
       </div>
 
-      <div className="home__cars-wrapper">
-        {mockCars.map((car) => (
-          <CarCard key={`${car.make}-${car.model}-${car.year}`} car={car} />
-        ))}
+      <div className="home__filters">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search make or model"
+          className="w-full max-w-md rounded-full border border-gray-200 px-5 py-3 outline-none focus:border-primary-blue"
+        />
+        <div className="home__filter-container">
+          {[
+            { id: 'all', label: 'All' },
+            { id: 'gas', label: 'Gas' },
+            { id: 'electric', label: 'Electric' },
+          ].map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setFuel(option.id)}
+              className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                fuel === option.id
+                  ? 'bg-primary-blue text-white'
+                  : 'bg-primary-blue-100 text-primary-blue'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {cars.length ? (
+        <div className="home__cars-wrapper">
+          {cars.map((car) => (
+            <CarCard key={`${car.make}-${car.model}-${car.year}`} car={car} />
+          ))}
+        </div>
+      ) : (
+        <div className="home__error-container">
+          <h2 className="text-black text-xl font-bold">No cars matched</h2>
+          <p>Try another search or fuel filter.</p>
+        </div>
+      )}
     </div>
   );
 };
